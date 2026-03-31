@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Study Buddy – on-device exam practice</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --border:   #30363d;
+      --green:    #10b981;
+      --green-dk: #065f46;
+      --red:      #ef4444;
+      --blue:     #3b82f6;
+      --blue-dk:  #1e3a5f;
+      --text:     #f0f6fc;
+      --muted:    #8b949e;
+      --card:     #1c2128;
+    }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100dvh; display: flex; flex-direction: column;
+      max-width: 520px; margin: 0 auto;
+    }
+
+    /* ── Header ───────────────────────────────────── */
+    .header {
+      background: linear-gradient(160deg, #064e3b 0%, #065f46 60%, #047857 100%);
+      padding: 1.5rem 1.5rem 1.25rem; text-align: center;
+      border-radius: 0 0 1.5rem 1.5rem;
+      box-shadow: 0 4px 24px rgba(16,185,129,0.15);
+    }
+    .logo { font-size: 2rem; margin-bottom: 0.2rem; }
+    .header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
+    .header p  { color: #a7f3d0; font-size: 0.8rem; margin-top: 0.15rem; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(0,0,0,0.3); color: #d1fae5;
+      padding: 0.3rem 0.85rem; border-radius: 99px;
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px;
+      margin-top: 0.7rem; text-transform: uppercase;
+    }
+
+    /* ── PDF Upload bar ───────────────────────────── */
+    .pdf-bar {
+      display: flex; align-items: center; gap: 0.65rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 0.85rem; padding: 0.75rem 1rem;
+      margin: 1rem 1.25rem 0;
+    }
+    .pdf-upload-btn {
+      flex-shrink: 0; padding: 0.4rem 0.85rem; border-radius: 0.55rem; cursor: pointer; display: inline-block;
+      border: 1px dashed var(--border); background: transparent;
+      color: var(--muted); font-size: 0.78rem; font-weight: 600;
+      transition: border-color 0.2s, color 0.2s; white-space: nowrap;
+    }
+    .pdf-upload-btn:hover { border-color: var(--green); color: var(--green); }
+    #pdfInput {
+      flex-shrink: 0;
+      padding: 0.4rem 0.85rem;
+      border-radius: 0.55rem;
+      border: 1px dashed var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    #pdfInput:hover { border-color: var(--green); color: var(--green); }
+    .pdf-status { font-size: 0.78rem; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdf-status.loaded { color: var(--green); }
+    .pdf-clear { flex-shrink: 0; background: transparent; border: none; color: #484f58; font-size: 0.85rem; cursor: pointer; display: none; }
+    .pdf-clear.show { display: block; }
+
+    /* ── Mode tabs ────────────────────────────────── */
+    .mode-tabs {
+      display: flex; margin: 1rem 1.25rem 0; gap: 0.5rem;
+    }
+    .mode-tab {
+      flex: 1; padding: 0.7rem 0.5rem; border-radius: 0.75rem;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; transition: all 0.2s; text-align: center;
+    }
+    .mode-tab.active-study {
+      background: #0c2d1d; border-color: var(--green); color: var(--green);
+    }
+    .mode-tab.active-practice {
+      background: var(--blue-dk); border-color: var(--blue); color: var(--blue);
+    }
+
+    /* ── Main content ─────────────────────────────── */
+    .content { padding: 1rem 1.25rem 1.5rem; flex: 1; }
+
+    /* ── Panel (shown/hidden by mode) ────────────── */
+    .panel { display: none; }
+    .panel.show { display: block; }
+
+    /* ── Input row ────────────────────────────────── */
+    .input-group { margin-bottom: 0.85rem; }
+    .input-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.4rem; display: block; }
+    .text-input {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      color: var(--text); border-radius: 0.75rem 0.75rem 0 0;
+      padding: 0.7rem 0.9rem; font-size: 0.9rem; line-height: 1.5;
+      resize: none; outline: none; font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .text-input::placeholder { color: #484f58; }
+    .text-input:focus { border-color: var(--green); }
+    .text-input.blue:focus { border-color: var(--blue); }
+
+    /* ── Primary action buttons ───────────────────── */
+    .action-btn {
+      width: 100%; padding: 0.75rem; border: none; border-radius: 0 0 0.75rem 0.75rem;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s; letter-spacing: 0.2px; color: white;
+    }
+    .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-green { background: linear-gradient(135deg, var(--green), #059669); }
+    .btn-blue  { background: linear-gradient(135deg, var(--blue), #2563eb); }
+
+    /* ── Voice record strip ───────────────────────── */
+    .voice-strip {
+      display: flex; align-items: center; gap: 0.85rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 0.75rem; padding: 0.75rem 1rem; margin-top: 0.6rem;
+    }
+    .voice-divider { text-align: center; color: var(--muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 0.85rem 0 0.6rem; }
+    .mic-btn {
+      width: 46px; height: 46px; border-radius: 50%; border: none; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; cursor: pointer; transition: all 0.15s;
+    }
+    .mic-btn.idle { background: linear-gradient(135deg, var(--green), #059669); }
+    .mic-btn.recording { background: linear-gradient(135deg, #ef4444, #dc2626); animation: pulse 1.4s infinite; }
+    .mic-btn.processing { background: var(--surface); cursor: not-allowed; }
+    @keyframes pulse {
+      0%  { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
+      70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+      100%{ box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .voice-info { flex: 1; }
+    .voice-label { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+    .voice-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; }
+    .voice-timer { font-size: 0.72rem; color: var(--red); font-weight: 700; min-height: 1em; }
+
+    /* ── Generate question button ─────────────────── */
+    .gen-btn {
+      width: 100%; padding: 0.7rem; border: 1px dashed var(--blue);
+      background: transparent; color: var(--blue); border-radius: 0.75rem;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      transition: background 0.2s; margin-bottom: 0.85rem;
+    }
+    .gen-btn:hover { background: var(--blue-dk); }
+    .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Loading ──────────────────────────────────── */
+    .loading { display: none; text-align: center; padding: 1.25rem 0; }
+    .loading.show { display: block; }
+    .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--green); animation: spin 0.75s linear infinite; margin: 0 auto 0.75rem; }
+    .spinner.blue { border-top-color: var(--blue); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: var(--muted); font-size: 0.82rem; }
+    .loading-step { color: var(--green); font-size: 0.78rem; font-weight: 600; margin-top: 0.15rem; }
+    .loading-step.blue { color: var(--blue); }
+
+    /* ── Result cards ─────────────────────────────── */
+    .result-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 1.1rem 1.25rem;
+      margin-bottom: 0.85rem; display: none;
+    }
+    .result-card.show { display: block; }
+    .card-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; margin-bottom: 0.6rem; }
+
+    /* Chat history */
+    .chat-item { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
+    .chat-q { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--green); margin-bottom: 0.35rem; }
+    .chat-q-text { font-size: 0.88rem; color: var(--text); font-weight: 600; margin-bottom: 0.75rem; }
+    .chat-divider { height: 1px; background: var(--border); margin-bottom: 0.75rem; }
+
+    /* Study answer */
+    .explanation-text { color: #c9d1d9; font-size: 0.9rem; line-height: 1.65; margin-bottom: 0.85rem; }
+    .keypoints-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--green); font-weight: 700; margin-bottom: 0.4rem; }
+    .keypoint { display: flex; gap: 0.55rem; padding: 0.4rem 0; font-size: 0.85rem; color: #c9d1d9; line-height: 1.45; border-bottom: 1px solid var(--border); }
+    .keypoint:last-child { border-bottom: none; }
+    .kp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; margin-top: 6px; }
+
+    /* Practice question */
+    .quiz-q { font-size: 1rem; font-weight: 700; color: var(--text); line-height: 1.5; margin-bottom: 0.5rem; }
+    .quiz-hint { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+
+    /* Score */
+    .score-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .score-circle { width: 60px; height: 60px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, var(--green-dk), var(--green)); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 900; color: white; }
+    .score-title { font-size: 1rem; font-weight: 700; }
+    .score-sub   { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; }
+    .bullet { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; color: #c9d1d9; line-height: 1.5; }
+    .bullet:last-child { border-bottom: none; }
+    .bullet-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; margin-top: 5px; }
+    .bullets-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; margin-bottom: 0.4rem; }
+
+    /* Transcript */
+    .transcript-text { color: #c9d1d9; font-size: 0.9rem; line-height: 1.6; font-style: italic; }
+
+    /* ── Error ────────────────────────────────────── */
+    .error { display: none; background: #1c0a0a; border: 1px solid #7f1d1d; color: #fca5a5; padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.85rem; margin-bottom: 0.85rem; }
+    .error.show { display: block; }
+
+    /* ── Try again ────────────────────────────────── */
+    .try-again { display: none; width: 100%; padding: 0.8rem; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 0.75rem; font-size: 0.88rem; font-weight: 600; cursor: pointer; margin-bottom: 0.85rem; transition: border-color 0.2s, color 0.2s; }
+    .try-again:hover { border-color: var(--green); color: var(--green); }
+    .try-again.show { display: block; }
+
+    /* ── Footer ───────────────────────────────────── */
+    .footer { text-align: center; padding: 0.75rem 1.5rem 1.5rem; color: #484f58; font-size: 0.68rem; line-height: 1.7; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────── -->
+<div class="header">
+  <div class="logo">🌵</div>
+  <h1>Study Buddy</h1>
+  <p>On-device study &amp; exam practice</p>
+  <div class="badge">🔒 100% On-Device &nbsp;·&nbsp; No Cloud &nbsp;·&nbsp; No Tracking</div>
+</div>
+
+<!-- ── PDF Upload bar ──────────────────────────────────────────────── -->
+<div class="pdf-bar">
+  <input type="file" id="pdfInput" accept=".pdf">
+  <span class="pdf-status" id="pdfStatus">Upload your study PDF to get started</span>
+  <button type="button" class="pdf-clear" id="pdfClear" onclick="clearPdf()" title="Remove">✕</button>
+</div>
+
+<!-- ── Mode tabs ───────────────────────────────────────────────────── -->
+<div class="mode-tabs">
+  <button class="mode-tab active-study" id="tabStudy" onclick="switchMode('study')">
+    📖 Study Mode
+  </button>
+  <button class="mode-tab" id="tabPractice" onclick="switchMode('practice')">
+    ✏️ Practice Mode
+  </button>
+</div>
+
+<!-- ── Content ─────────────────────────────────────────────────────── -->
+<div class="content">
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  STUDY MODE — ask questions, get explanations from the PDF     -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="panel show" id="panelStudy">
+
+    <div class="input-group">
+      <span class="input-label">💬 Ask anything from your PDF</span>
+      <textarea id="studyQuestion" class="text-input" rows="3"
+        placeholder="e.g. What is Big Data? Explain MapReduce. What are the 3 Vs?…"></textarea>
+      <button class="action-btn btn-green" id="askBtn" onclick="askQuestion()">
+        🔍 Explain This
+      </button>
+    </div>
+
+    <!-- OR: voice question -->
+    <div class="voice-divider">or ask by voice</div>
+    <div class="voice-strip" id="studyVoiceStrip">
+      <button class="mic-btn idle" id="studyMicBtn" onclick="toggleVoice('study')">🎙️</button>
+      <div class="voice-info">
+        <div class="voice-label" id="studyVoiceLabel">Tap mic and ask your question</div>
+        <div class="voice-timer" id="studyTimer"></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="studyLoading">
+      <div class="spinner"></div>
+      <div class="loading-text">Finding answer in your PDF…</div>
+      <div class="loading-step">Running on-device AI</div>
+    </div>
+
+    <!-- Error -->
+    <div class="error" id="studyError"></div>
+
+    <!-- Chat history — answers append here, newest on top -->
+    <div id="studyChatHistory"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--  PRACTICE MODE — get quizzed, answer by voice or text         -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="panel" id="panelPractice">
+
+    <!-- Generate a question -->
+    <button class="gen-btn" id="genBtn" onclick="generateQuestion()">
+      🎲 Generate Practice Question
+    </button>
+
+    <!-- Question display -->
+    <div class="result-card" id="quizCard">
+      <div class="card-label">📋 Practice Question</div>
+      <div class="quiz-q" id="quizQuestion"></div>
+      <div class="quiz-hint" id="quizHint"></div>
+    </div>
+
+    <!-- Answer section -->
+    <div class="input-group">
+      <span class="input-label">✍️ Your Answer</span>
+      <textarea id="practiceAnswer" class="text-input blue" rows="4"
+        placeholder="Type your answer here (at least 2–3 sentences)…"></textarea>
+      <button class="action-btn btn-blue" id="submitBtn" onclick="submitAnswer()">
+        ➤ Submit Answer
+      </button>
+    </div>
+
+    <!-- OR: voice answer -->
+    <div class="voice-divider">or speak your answer</div>
+    <div class="voice-strip">
+      <button class="mic-btn idle" id="practiceMicBtn" onclick="toggleVoice('practice')">🎙️</button>
+      <div class="voice-info">
+        <div class="voice-label" id="practiceVoiceLabel">Tap mic and speak your answer</div>
+        <div class="voice-timer" id="practiceTimer"></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="practiceLoading">
+      <div class="spinner blue"></div>
+      <div class="loading-text" id="practiceLoadingText">Scoring your answer…</div>
+      <div class="loading-step blue">Running on-device AI</div>
+    </div>
+
+    <!-- Error -->
+    <div class="error" id="practiceError"></div>
+
+    <!-- Transcript -->
+    <div class="result-card" id="practiceTranscriptCard">
+      <div class="card-label">📝 Your Answer (Transcript)</div>
+      <div class="transcript-text" id="practiceTranscriptText"></div>
+    </div>
+
+    <!-- Score card -->
+    <div class="result-card" id="practiceFeedbackCard">
+      <div class="score-row">
+        <div class="score-circle" id="practiceScoreCircle">?</div>
+        <div>
+          <div class="score-title" id="practiceScoreTitle">Score</div>
+          <div class="score-sub">Clarity · Structure · Completeness</div>
+        </div>
+      </div>
+      <div class="bullets-label">💡 Suggestions</div>
+      <div id="practiceBullets"></div>
+    </div>
+
+    <button class="try-again" id="practiceTryAgain" onclick="resetPractice()">↩ Try Again</button>
+  </div>
+
+  <!-- Error (global) -->
+  <div class="error" id="globalError"></div>
+
+</div><!-- .content -->
+
+<!-- ── Footer ─────────────────────────────────────────────────────── -->
+<div class="footer">
+  🔒 All audio and AI processing happens entirely on this device.<br>
+  No data is ever sent to any server or third party.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<script>
+// ── State ────────────────────────────────────────────────────────────
+let currentMode   = 'study';
+let audioCtx      = null;
+let scriptProc    = null;
+let allSamples    = [];
+let sampleRate    = 16000;
+let activeVoice   = null;   // 'study' | 'practice'
+let timerInterval = null;
+let elapsed       = 0;
+const MAX_SECS    = 60;
+let pdfLoaded     = false;
+let currentQuestion = "";
+
+// ── Mode switch ───────────────────────────────────────────────────────
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('panelStudy').classList.toggle('show', mode === 'study');
+  document.getElementById('panelPractice').classList.toggle('show', mode === 'practice');
+
+  document.getElementById('tabStudy').className    = 'mode-tab' + (mode === 'study'    ? ' active-study'    : '');
+  document.getElementById('tabPractice').className = 'mode-tab' + (mode === 'practice' ? ' active-practice' : '');
+}
+
+// ── PDF Upload ────────────────────────────────────────────────────────
+async function handlePdfUpload(input) {
+  const file = input.files[0];
+  const st = document.getElementById('pdfStatus');
+  if (!file) {
+    st.textContent = 'Upload your study PDF to get started';
+    return;
+  }
+  st.textContent = 'Uploading…'; st.classList.remove('loaded');
+
+  const fd = new FormData();
+  fd.append('pdf', file);
+  try {
+    const res = await fetch('/upload-pdf', { method: 'POST', body: fd });
+    const bodyText = await res.text();
+    let d = {};
+    try { if (bodyText) d = JSON.parse(bodyText); } catch (_) {}
+    if (!res.ok) {
+      const detail = d.detail;
+      const msg = Array.isArray(detail) ? (detail[0] && detail[0].msg) || 'Upload failed' : (detail || 'Upload failed');
+      throw new Error(typeof msg === 'string' ? msg : 'Upload failed');
+    }
+    st.textContent = '✓ ' + (d.filename || file.name) + ' (' + Math.round((d.chars || 0) / 1000) + 'k chars)';
+    st.classList.add('loaded');
+    document.getElementById('pdfClear').classList.add('show');
+    pdfLoaded = true;
+  } catch(e) {
+    st.textContent = '✗ ' + (e.message || 'Upload failed');
+  }
+  input.value = '';
+}
+
+function clearPdf() {
+  document.getElementById('pdfStatus').textContent = 'Upload your study PDF to get started';
+  document.getElementById('pdfStatus').classList.remove('loaded');
+  document.getElementById('pdfClear').classList.remove('show');
+  pdfLoaded = false;
+}
+
+// ── STUDY MODE ────────────────────────────────────────────────────────
+async function askQuestion(questionOverride) {
+  const q = questionOverride || document.getElementById('studyQuestion').value.trim();
+  if (!q) { showErr('studyError', 'Please type or speak a question first.'); return; }
+
+  document.getElementById('askBtn').disabled = true;
+  hideErr('studyError');
+  document.getElementById('studyLoading').classList.add('show');
+
+  try {
+    const res = await fetch('/ask', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q })
+    });
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Error');
+    const d = await res.json();
+
+    // Append to chat history (newest on top)
+    const history = document.getElementById('studyChatHistory');
+    const keyPointsHtml = (d.key_points || []).length > 0
+      ? `<div class="keypoints-label">🔑 Key Points</div>
+         ${(d.key_points).map(p => `<div class="keypoint"><div class="kp-dot"></div><span>${esc(p)}</span></div>`).join('')}`
+      : '';
+
+    const answerText = (d && d.answer != null && String(d.answer).trim()) ? d.answer : 'No answer could be generated. Try asking something specific about your PDF.';
+    const card = document.createElement('div');
+    card.className = 'chat-item';
+    card.innerHTML = `
+      <div class="chat-q">❓ Your Question</div>
+      <div class="chat-q-text">${esc(q)}</div>
+      <div class="chat-divider"></div>
+      <div class="card-label">📖 From your PDF</div>
+      <div class="explanation-text">${esc(answerText)}</div>
+      ${keyPointsHtml}
+    `;
+    history.insertBefore(card, history.firstChild);
+
+    // Clear question input for next question
+    document.getElementById('studyQuestion').value = '';
+
+  } catch(e) {
+    showErr('studyError', e.message);
+  } finally {
+    document.getElementById('studyLoading').classList.remove('show');
+    document.getElementById('askBtn').disabled = false;
+  }
+}
+
+function resetStudy() {
+  document.getElementById('studyQuestion').value = '';
+  document.getElementById('studyChatHistory').innerHTML = '';
+  hideErr('studyError');
+}
+
+// ── PRACTICE MODE ─────────────────────────────────────────────────────
+async function generateQuestion() {
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+
+  try {
+    const res = await fetch('/quiz', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: '' })
+    });
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Error');
+    const d = await res.json();
+    currentQuestion = d.question;
+    document.getElementById('quizQuestion').textContent = d.question;
+    document.getElementById('quizHint').textContent = d.hint ? `💡 Hint: ${d.hint}` : '';
+    document.getElementById('quizCard').classList.add('show');
+  } catch(e) {
+    showErr('practiceError', e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🎲 Generate Practice Question';
+  }
+}
+
+async function submitAnswer(transcriptOverride) {
+  const answer = transcriptOverride || document.getElementById('practiceAnswer').value.trim();
+  if (!answer) { showErr('practiceError', 'Please type or speak your answer first.'); return; }
+
+  document.getElementById('submitBtn').disabled = true;
+  hideErr('practiceError');
+  hidePracticeResults();
+  document.getElementById('practiceLoadingText').textContent = 'Scoring your answer…';
+  document.getElementById('practiceLoading').classList.add('show');
+
+  // Show transcript
+  document.getElementById('practiceTranscriptText').textContent = answer;
+  document.getElementById('practiceTranscriptCard').classList.add('show');
+
+  try {
+    const res = await fetch('/feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: answer, question: currentQuestion })
+    });
+    if (!res.ok) throw new Error((await res.json().catch(()=>({}))).detail || 'Error');
+    const d = await res.json();
+
+    const score = d.score || '?';
+    document.getElementById('practiceScoreCircle').textContent = score.split('/')[0];
+    document.getElementById('practiceScoreTitle').textContent  = `Score: ${score}`;
+
+    document.getElementById('practiceBullets').innerHTML = (d.bullets || []).map(b =>
+      `<div class="bullet"><div class="bullet-dot"></div><span>${esc(b)}</span></div>`
+    ).join('');
+
+    document.getElementById('practiceFeedbackCard').classList.add('show');
+    document.getElementById('practiceTryAgain').classList.add('show');
+  } catch(e) {
+    showErr('practiceError', e.message);
+  } finally {
+    document.getElementById('practiceLoading').classList.remove('show');
+    document.getElementById('submitBtn').disabled = false;
+  }
+}
+
+function hidePracticeResults() {
+  ['practiceFeedbackCard', 'practiceTryAgain'].forEach(id =>
+    document.getElementById(id).classList.remove('show'));
+}
+
+function resetPractice() {
+  document.getElementById('practiceAnswer').value = '';
+  document.getElementById('practiceTranscriptCard').classList.remove('show');
+  hidePracticeResults();
+  hideErr('practiceError');
+}
+
+// ── Voice recording ────────────────────────────────────────────────────
+async function toggleVoice(mode) {
+  if (activeVoice) {
+    stopVoice();
+  } else {
+    startVoice(mode);
+  }
+}
+
+async function startVoice(mode) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    sampleRate = audioCtx.sampleRate;
+    allSamples = [];
+
+    // Load AudioWorklet processor (replaces deprecated ScriptProcessorNode)
+    await audioCtx.audioWorklet.addModule('/static/recorder-worklet.js');
+    scriptProc = new AudioWorkletNode(audioCtx, 'recorder-processor');
+    scriptProc._stream = stream;
+
+    scriptProc.port.onmessage = (e) => {
+      allSamples.push(e.data);
+    };
+
+    const src = audioCtx.createMediaStreamSource(stream);
+    src.connect(scriptProc);
+    scriptProc.connect(audioCtx.destination);
+
+    activeVoice = mode;
+    setMicState(mode, 'recording');
+    startTimer(mode);
+  } catch(e) {
+    const msg = e.name === 'NotAllowedError'
+      ? 'Microphone access denied. Please allow microphone and try again.'
+      : 'Could not start recording: ' + e.message;
+    showErr(mode === 'study' ? 'studyError' : 'practiceError', msg);
+  }
+}
+
+function stopVoice() {
+  if (!scriptProc) return;
+  scriptProc.port.postMessage('stop');
+  scriptProc._stream.getTracks().forEach(t => t.stop());
+  scriptProc.disconnect();
+  audioCtx.close();
+  const mode = activeVoice;
+  activeVoice = null;
+  stopTimer(mode);
+  setMicState(mode, 'processing');
+  processVoice(mode);
+}
+
+async function processVoice(mode) {
+  const total  = allSamples.reduce((n,a) => n + a.length, 0);
+  const errId  = mode === 'study' ? 'studyError' : 'practiceError';
+
+  // Need at least 1 second of audio (sampleRate samples)
+  if (total < sampleRate) {
+    showErr(errId, 'Recording too short. Hold the mic button and speak for at least 2 seconds.');
+    setMicState(mode, 'idle');
+    return;
+  }
+
+  const merged = new Float32Array(total);
+  let off = 0;
+  for (const c of allSamples) { merged.set(c, off); off += c.length; }
+
+  // Always send 16kHz to Whisper (downsample if browser recorded at higher rate)
+  const pcm16 = downsampleTo16k(merged, sampleRate);
+  const wav   = encodeWAV(pcm16, 16000);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  const fd   = new FormData();
+  fd.append('audio', blob, 'rec.wav');
+
+  // errId already declared above
+  try {
+    const tRes = await fetch('/transcribe', { method: 'POST', body: fd });
+    if (!tRes.ok) throw new Error('Transcription failed — server error');
+    const tData = await tRes.json();
+    if (!tData.success) throw new Error(tData.detail || 'No speech detected. Please speak clearly and try again.');
+    const transcript = tData.transcript;
+
+    if (mode === 'study') {
+      document.getElementById('studyQuestion').value = transcript;
+      askQuestion(transcript);
+    } else {
+      document.getElementById('practiceAnswer').value = transcript;
+      submitAnswer(transcript);
+    }
+  } catch(e) {
+    showErr(errId, e.message);
+  }
+  setMicState(mode, 'idle');
+}
+
+// ── Timer ─────────────────────────────────────────────────────────────
+function startTimer(mode) {
+  elapsed = 0;
+  const el = document.getElementById(mode === 'study' ? 'studyTimer' : 'practiceTimer');
+  el.textContent = `● 0s / ${MAX_SECS}s`;
+  timerInterval = setInterval(() => {
+    elapsed++;
+    el.textContent = `● ${elapsed}s / ${MAX_SECS}s`;
+    if (elapsed >= MAX_SECS) stopVoice();
+  }, 1000);
+}
+function stopTimer(mode) {
+  clearInterval(timerInterval);
+  const el = document.getElementById(mode === 'study' ? 'studyTimer' : 'practiceTimer');
+  if (el) el.textContent = '';
+}
+
+// ── Mic button state ──────────────────────────────────────────────────
+function setMicState(mode, state) {
+  const btnId   = mode === 'study' ? 'studyMicBtn'   : 'practiceMicBtn';
+  const labelId = mode === 'study' ? 'studyVoiceLabel' : 'practiceVoiceLabel';
+  const btn     = document.getElementById(btnId);
+  const label   = document.getElementById(labelId);
+  btn.className = `mic-btn ${state}`;
+  if (state === 'idle')       { btn.textContent = '🎙️'; label.textContent = mode === 'study' ? 'Tap mic and ask your question' : 'Tap mic and speak your answer'; }
+  if (state === 'recording')  { btn.textContent = '⏹';  label.textContent = 'Recording… tap to stop'; }
+  if (state === 'processing') { btn.textContent = '⏳'; label.textContent = 'Transcribing…'; }
+}
+
+// ── Downsample to 16kHz (Whisper requirement) ─────────────────────────
+function downsampleTo16k(samples, fromRate) {
+  if (fromRate === 16000) return samples;
+  const ratio   = fromRate / 16000;
+  const outLen  = Math.round(samples.length / ratio);
+  const out     = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    // Simple linear interpolation
+    const pos  = i * ratio;
+    const lo   = Math.floor(pos);
+    const hi   = Math.min(lo + 1, samples.length - 1);
+    const frac = pos - lo;
+    out[i] = samples[lo] * (1 - frac) + samples[hi] * frac;
+  }
+  return out;
+}
+
+// ── WAV encoder ───────────────────────────────────────────────────────
+function encodeWAV(samples, rate) {
+  const len = samples.length;
+  const buf = new ArrayBuffer(44 + len * 2);
+  const v   = new DataView(buf);
+  const ws  = (o, s) => { for (let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  ws(0,'RIFF'); v.setUint32(4, 36+len*2,true); ws(8,'WAVE'); ws(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,rate,true); v.setUint32(28,rate*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  ws(36,'data'); v.setUint32(40,len*2,true);
+  let o=44;
+  for (let i=0;i<len;i++) { const s=Math.max(-1,Math.min(1,samples[i])); v.setInt16(o, s<0?s*0x8000:s*0x7FFF, true); o+=2; }
+  return buf;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.add('show'); }
+}
+function hideErr(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('show');
+}
+function esc(t) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(t));
+  return d.innerHTML;
+}
+
+// ── Wire up file input (all functions are defined above this point) ───
+document.getElementById('pdfInput').addEventListener('change', function() {
+  handlePdfUpload(this);
+});
+</script>
+</body>
+</html>
